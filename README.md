@@ -1,4 +1,6 @@
 python-dtrace
 =============
 
-libusdt bindings for python
+[libusdt](https://github.com/chrisa/libusdt) bindings for python
+
+# WORK IN PROGRESS
