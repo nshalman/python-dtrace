@@ -10,21 +10,15 @@ FAKE_DTRACE = False
 from ctypes import cdll, c_char_p, c_int, c_void_p, cast
 
 try:
-    _libusdt = cdll.LoadLibrary("./libusdt.so")
+    _LIBUSDT = cdll.LoadLibrary("./libusdt.so")
     HAVE_USDT = True
-except:
+except OSError:
+    #Didn't find the library, probably not supported
     pass
 
 if HAVE_USDT:
-    usdt_create_provider = _libusdt.usdt_create_provider
-    usdt_create_provider.argtypes = [c_char_p, c_char_p]
-
-    usdt_create_probe = _libusdt.usdt_create_probe
-    usdt_create_probe.argtypes = [c_char_p, c_char_p, c_int, c_void_p]
-
-    usdt_provider_add_probe = _libusdt.usdt_provider_add_probe
-    usdt_provider_enable = _libusdt.usdt_provider_enable
-    usdt_fire_probedef = _libusdt.usdt_fire_probedef
+    _LIBUSDT.usdt_create_provider.argtypes = [c_char_p, c_char_p]
+    _LIBUSDT.usdt_create_probe.argtypes = [c_char_p, c_char_p, c_int, c_void_p]
 
     class Probe(object):
         """ a USDT probe """
@@ -33,7 +27,8 @@ if HAVE_USDT:
             args = (c_char_p * self.length)()
             for i in range(self.length):
                 args[i] = arg_desc[i]
-            self.probedef = usdt_create_probe(func, name, self.length, args)
+            self.probedef = _LIBUSDT.usdt_create_probe(func,
+                    name, self.length, args)
 
         def fire(self, args):
             """ fire the probe """
@@ -41,23 +36,23 @@ if HAVE_USDT:
                 c_args = (c_void_p * self.length)()
                 for i in range(self.length):
                     c_args[i] = cast(args[i], c_void_p)
-                usdt_fire_probedef(self.probedef, self.length, c_args)
+                _LIBUSDT.usdt_fire_probedef(self.probedef, self.length, c_args)
 
     class Provider(object):
         """ a USDT provider """
         provider = None
         probes = []
         def __init__(self, provider="python-dtrace", module="default_module"):
-            self.provider = usdt_create_provider(provider, module)
+            self.provider = _LIBUSDT.usdt_create_provider(provider, module)
 
         def add_probe(self, probe):
             """ add a probe to this provider """
             self.probes.append(probe)
-            usdt_provider_add_probe(self.provider, probe.probedef)
+            _LIBUSDT.usdt_provider_add_probe(self.provider, probe.probedef)
 
         def enable(self):
             """ enable the provider """
-            return(usdt_provider_enable(self.provider))
+            return(_LIBUSDT.usdt_provider_enable(self.provider))
 
         def __del__(self):
             pass
@@ -99,27 +94,32 @@ else:
 FBT_PROVIDER = Provider("python-dtrace", "fbt")
 
 class fbt(object):
-    def __init__(self, f):
-        """
-        simple function boundary tracing decorator
-        """
-        self.f = f
-        probename = f.__name__
+    """
+    simple function boundary tracing decorator
+    """
+    def __init__(self, func):
+        self.func = func
+        probename = func.__name__
         self.entry_probe = Probe(probename, "entry", ["char *"])
         self.return_probe = Probe(probename, "return", ["char *"])
         FBT_PROVIDER.add_probe(self.entry_probe)
         FBT_PROVIDER.add_probe(self.return_probe)
 
     def __call__(self, *args):
-        self.entry_probe.fire([", ".join(map(str,args))])
-        ret = self.f(*args)
+        self.entry_probe.fire([", ".join([str(x) for x in args])])
+        ret = self.func(*args)
         self.return_probe.fire([str(ret)])
         return ret
 
 def enable_fbt():
-	FBT_PROVIDER.enable()
+    """
+    enable the fbt provider,
+    must not be called until all decorated functions have been defined
+    """
+    FBT_PROVIDER.enable()
 
 def main():
+    """ example code """
     test_prov = Provider("python", "provmod")
     test_probe = Probe("hello", "name", ["char *"])
     test_prov.add_probe(test_probe)
@@ -127,7 +127,8 @@ def main():
     test_probe.fire(["Hello World"])
     @fbt
     def hello(arg1, arg2):
-        return True
+        """ sample decorated function """
+        return (arg1, arg2)
     enable_fbt()
     hello(1, 2)
 
