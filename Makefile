@@ -1,15 +1,16 @@
+ctypes: dtrace-ctypes.py libusdt.so
+	sudo dtrace -Zqn ':::func{printf("%s\n",copyinstr(arg0));}' -c ./dtrace-ctypes.py
+
+libusdt.so: libusdt/libusdt.a
+	gcc -g -shared -o $@ -Wl,--whole-archive $<
+
 test: dtrace.so test.py
-	@echo
-	@echo Run the following in another shell:
-	@echo "sudo dtrace -qn ':::testname{printf(\"%s\\\\n\",copyinstr(arg0));}'"
-	@echo
-	@sleep 2
-	python test.py
+	sudo dtrace -Zqn ':::testname{printf("%s\n",copyinstr(arg0));}' -c ./test.py
 
 dtrace.so: libusdt/libusdt.a dtrace.c setup.py
 	rm -rf dtrace.so build/
 	python setup.py build
-	cp build/lib*/dtrace.so .
+	mv build/lib*/*.so .
 
 libusdt/libusdt.a:
 	git submodule init

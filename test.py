@@ -28,7 +28,7 @@ def timeout2():
 def timeout3():
 	print timeout1() + " " + timeout2()
 
-while True:
+for i in range(2):
 	timeout3()
 	dtrace.fire("Hello dtrace")
 	time.sleep(1)
