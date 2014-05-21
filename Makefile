@@ -1,5 +1,5 @@
-ctypes: dtrace-ctypes.py libusdt.so
-	sudo dtrace -Zqn ':::func{printf("%s\n",copyinstr(arg0));}' -c ./dtrace-ctypes.py
+usdt: usdt.py libusdt.so
+	sudo dtrace -Zqn '::hello:{printf("%s:%s:%s:%s %s\n", probeprov, probemod, probefunc, probename, copyinstr(arg0));}' -c ./usdt.py
 
 libusdt.so: libusdt/libusdt.a
 	gcc -g -shared -o $@ -Wl,--whole-archive $<
