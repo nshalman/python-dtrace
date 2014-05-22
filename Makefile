@@ -2,6 +2,9 @@ usdt: usdt.py libusdt.so
 	sudo dtrace -Zqn '::hello:{printf("%s:%s:%s:%s %s\n", probeprov, probemod, probefunc, probename, copyinstr(arg0));}' -c ./usdt.py
 	sudo dtrace -Z -s test.d -c ./test2.py
 
+logging: libusdt.so logging.d usdt_logger.py
+	sudo dtrace -Zs logging.d -c ./usdt_logger.py
+
 libusdt.so: libusdt/libusdt.a
 	gcc -g -shared -o $@ -Wl,--whole-archive $<
 
