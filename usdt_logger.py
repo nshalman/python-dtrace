@@ -33,27 +33,27 @@ class DtraceLogger(logging.Handler):
 			probe = self.debug_probe
 		else:
 			probe = self.notset_probe
-		probe.fire([record.levelno, record.msg])
+		probe.fire([record.levelno, self.format(record)])
 
 def main():
-	pass
-
-if __name__ == "__main__":
-	dtrace_handler = DtraceLogger()
 	logger = logging.getLogger()
-	logger.addHandler(dtrace_handler)
-	logger.debug("debug message")
-	logger.info("info message")
-	logger.warning("warning message")
-	logger.error("error message")
-	logger.critical("critical message")
-	logger.log(0, "notset message")
-
 	logger.setLevel(logging.NOTSET)
 
+	dtrace_handler = DtraceLogger()
+	dtrace_handler.setLevel(logging.NOTSET)
+
+	logger.addHandler(dtrace_handler)
+
+	ch = logging.StreamHandler()
+	ch.setLevel(logging.ERROR)
+	logger.addHandler(ch)
+
 	logger.debug("debug message")
 	logger.info("info message")
 	logger.warning("warning message")
 	logger.error("error message")
 	logger.critical("critical message")
-	logger.log(logging.NOTSET, "notset message")
+	logger.log(logging.NOTSET + 1, "notset message")
+
+if __name__ == "__main__":
+	main()
