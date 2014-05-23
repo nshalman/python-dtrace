@@ -1,3 +1,0 @@
-[submodule "libusdt"]
-	path = libusdt
-	url = git://github.com/nshalman/libusdt

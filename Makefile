@@ -1,27 +1,21 @@
-usdt: usdt.py libusdt.so
-	sudo dtrace -Zqn '::hello:{printf("%s:%s:%s:%s %s\n", probeprov, probemod, probefunc, probename, copyinstr(arg0));}' -c ./usdt.py
-	sudo dtrace -Z -s test.d -c ./test2.py
+default:
+	@echo "try 'make logging' or 'make fbt'"
 
-logging: libusdt.so logging.d usdt_logger.py
-	sudo dtrace -Zs logging.d -c ./usdt_logger.py
+logging: lib/python2.7/site-packages/usdt
+	./helper sudo dtrace -Zs logging.d -c ./usdt_logger.py
 
-libusdt.so: libusdt/libusdt.a
-	gcc -g -shared -o $@ -Wl,--whole-archive $<
+fbt: lib/python2.7/site-packages/usdt
+	./helper sudo dtrace -Z -s fbt.d -c ./fbt.py
 
-test: dtrace.so test.py
-	sudo dtrace -Zqn ':::testname{printf("%s\n",copyinstr(arg0));}' -c ./test.py
+bin/activate:
+	virtualenv .
 
-dtrace.so: libusdt/libusdt.a dtrace.c setup.py
-	rm -rf dtrace.so build/
-	python setup.py build
-	mv build/lib*/*.so .
+lib/python2.7/site-packages/usdt: bin/activate
+	./helper pip install git+git://github.com/nshalman/python-usdt.git
 
-libusdt/libusdt.a:
-	git submodule init
-	git submodule update
-	cd libusdt ; cat /opt/local/etc/pkgin/repositories.conf | sed 's|.*/\([^/]*\)/All/|\1|' | xargs -iARCHY make ARCH=ARCHY clean all
 
 .PHONY: clean
 
 clean:
+	rm -rf lib
 	git clean -fdX
