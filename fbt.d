@@ -2,6 +2,9 @@
 
 #pragma D option quiet
 
+:::BEGIN{
+printf("fbt.d initialized.\n");
+}
 ::hello:
 {
 printf("%s:%s:%s:%s %s\n", probeprov, probemod, probefunc, probename, copyinstr(arg0));
