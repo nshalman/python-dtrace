@@ -8,18 +8,22 @@ import subprocess
 
 import usdt
 
-from fbt import enable_fbt, fbt
+from fbt import fbt
 from usdt_logger import DtraceLogger
 
 
 class DtraceTest(unittest.TestCase):
     def setUp(self):
-        self.dtrace = subprocess.Popen(
-            ['dtrace', '-Z', '-s', self.dtrace_script], stdout=subprocess.PIPE)
+        begin_probe = ':::BEGIN { printf("initialized\\n"); }'
+
+        cmd = ['dtrace', '-Z', '-q', '-n', begin_probe]
+        for glob in self.dtrace_globs:
+            cmd += ['-n', glob]
+        self.dtrace = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
         # wait for dtrace to print first line of output (based on the :::BEGIN
         #  probe) to indicate that it's readuy
-        self.assertTrue(self.get_next_message().endswith('initialized.\n'))
+        self.assertTrue(self.get_next_message().endswith('initialized\n'))
 
     def get_next_message(self):
         return self.dtrace.stdout.readline()
@@ -29,12 +33,10 @@ class DtraceTest(unittest.TestCase):
 
 
 class ProbeTest(DtraceTest):
-    dtrace_script = './fbt.d'
-
-    def get_arg0(self, logline):
-        probeprov, probemod, probefunc, more = logline.split(':')
-        probename, arg0 = more.split(' ', 1)
-        return arg0.rstrip()
+    dtrace_globs = [
+        '::hello:int { printf("%d\\n", arg1); }',
+        '::hello:name { printf("%s\\n", copyinstr(arg0)); }'
+    ]
 
     def test_probe(self):
         test_prov = usdt.Provider("python", "provmod")
@@ -43,7 +45,7 @@ class ProbeTest(DtraceTest):
         test_prov.enable()
 
         test_probe.fire(["Hello World"])
-        self.assertEqual(self.get_arg0(self.get_next_message()), 'Hello World')
+        self.assertEqual(self.get_next_message(), 'Hello World\n')
 
     def test_probe_2(self):
         test_prov = usdt.Provider("python", "provmod")
@@ -52,26 +54,39 @@ class ProbeTest(DtraceTest):
         test_prov.enable()
 
         int_probe.fire(["Number Test", 5])
-        self.assertEqual(self.get_arg0(self.get_next_message()), 'Number Test')
+        self.assertEqual(self.get_next_message(), '5\n')
 
-
-@fbt
-def hello(arg1, arg2):
-    return True
 
 class FunctionBoundaryTracerTest(DtraceTest):
-    dtrace_script = './fbt.d'
+    dtrace_globs = [
+        ':fbt:: { printf("%s:%s:%s:%s %s\\n", probeprov, probemod, probefunc, probename, copyinstr(arg0)); }'
+    ]
 
     def test_fbt(self):
-        enable_fbt()
+        @fbt
+        def hello2(arg1, arg2):
+            return True
 
-        hello(1, 2)
-        self.assertTrue(self.get_next_message().endswith('hello:entry 1, 2\n'))
+        hello2(1, 2)
+        self.assertTrue(self.get_next_message().endswith('hello2:entry 1, 2\n'))
+        self.assertTrue(self.get_next_message().endswith('hello2:return True\n'))
+
+    @fbt
+    def hello(self, arg1, arg2):
+        return True
+
+    def test_fbt_2(self):
+        """Same as test_fbt, but tracing a class method."""
+        self.hello(1, 2)
+        self.assertTrue(self.get_next_message().endswith(
+            'hello:entry test_fbt_2 (__main__.FunctionBoundaryTracerTest), 1, 2\n'))
         self.assertTrue(self.get_next_message().endswith('hello:return True\n'))
 
 
 class LoggingTest(DtraceTest):
-    dtrace_script = './logging.d'
+    dtrace_globs = [
+        '::logging: { printf("%s:%s:%s:%s %d %s\\n", probeprov, probemod, probefunc, probename, arg0, copyinstr(arg1)); }'
+    ]
 
     def get_probename(self, logline):
         probeprov, probemod, probefunc, more = logline.split(':')

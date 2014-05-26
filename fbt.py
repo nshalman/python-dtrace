@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-import usdt
+import functools
 
-FBT_PROVIDER = usdt.Provider("python-dtrace", "fbt")
+import usdt
 
 
 class fbt(object):
@@ -14,8 +14,10 @@ class fbt(object):
         probename = func.__name__
         self.entry_probe = usdt.Probe(probename, "entry", ["char *"])
         self.return_probe = usdt.Probe(probename, "return", ["char *"])
-        FBT_PROVIDER.add_probe(self.entry_probe)
-        FBT_PROVIDER.add_probe(self.return_probe)
+        self.provider = usdt.Provider("python-fbt", "fbt")
+        self.provider.add_probe(self.entry_probe)
+        self.provider.add_probe(self.return_probe)
+        self.provider.enable()
 
     def __call__(self, *args):
         self.entry_probe.fire([", ".join([str(x) for x in args])])
@@ -23,10 +25,6 @@ class fbt(object):
         self.return_probe.fire([str(ret)])
         return ret
 
-
-def enable_fbt():
-    """
-    enable the fbt provider,
-    must not be called until all decorated functions have been defined
-    """
-    FBT_PROVIDER.enable()
+    def __get__(self, obj, objtype):
+        """Support instance methods. (http://stackoverflow.com/a/3296318)"""
+        return functools.partial(self.__call__, obj)
