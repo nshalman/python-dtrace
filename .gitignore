@@ -1,7 +1,2 @@
-*.so
 *.pyc
-core
-build/
-bin/
-lib/
-include/
+env/
