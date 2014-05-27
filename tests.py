@@ -64,23 +64,23 @@ class FunctionBoundaryTracerTest(DtraceTest):
 
     def test_fbt(self):
         @fbt
-        def hello2(arg1, arg2):
+        def hello(arg1, arg2):
             return True
 
-        hello2(1, 2)
-        self.assertTrue(self.get_next_message().endswith('hello2:entry 1, 2\n'))
-        self.assertTrue(self.get_next_message().endswith('hello2:return True\n'))
+        hello(1, 2)
+        self.assertTrue(self.get_next_message().endswith('hello:entry 1, 2\n'))
+        self.assertTrue(self.get_next_message().endswith('hello:return True\n'))
 
     @fbt
-    def hello(self, arg1, arg2):
+    def hello2(self, arg1, arg2):
         return True
 
     def test_fbt_2(self):
         """Same as test_fbt, but tracing a class method."""
-        self.hello(1, 2)
+        self.hello2(1, 2)
         self.assertTrue(self.get_next_message().endswith(
-            'hello:entry test_fbt_2 (__main__.FunctionBoundaryTracerTest), 1, 2\n'))
-        self.assertTrue(self.get_next_message().endswith('hello:return True\n'))
+            'hello2:entry test_fbt_2 (__main__.FunctionBoundaryTracerTest), 1, 2\n'))
+        self.assertTrue(self.get_next_message().endswith('hello2:return True\n'))
 
 
 class LoggingTest(DtraceTest):
@@ -103,21 +103,17 @@ class LoggingTest(DtraceTest):
         logger.addHandler(dtrace_handler)
 
         logger.debug("debug message")
-        self.assertEqual(self.get_probename(self.get_next_message()), 'debug')
-
         logger.info("info message")
-        self.assertEqual(self.get_probename(self.get_next_message()), 'info')
-
         logger.warning("warning message")
-        self.assertEqual(self.get_probename(self.get_next_message()), 'warning')
-
         logger.error("error message")
-        self.assertEqual(self.get_probename(self.get_next_message()), 'error')
-
         logger.critical("critical message")
-        self.assertEqual(self.get_probename(self.get_next_message()), 'critical')
-
         logger.log(logging.NOTSET + 1, "notset message")
+
+        self.assertEqual(self.get_probename(self.get_next_message()), 'debug')
+        self.assertEqual(self.get_probename(self.get_next_message()), 'info')
+        self.assertEqual(self.get_probename(self.get_next_message()), 'warning')
+        self.assertEqual(self.get_probename(self.get_next_message()), 'error')
+        self.assertEqual(self.get_probename(self.get_next_message()), 'critical')
         self.assertEqual(self.get_probename(self.get_next_message()), 'notset')
 
 
